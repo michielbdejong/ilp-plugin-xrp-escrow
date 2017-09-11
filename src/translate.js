@@ -35,8 +35,8 @@ function parseMemos (rawMemos) {
 }
 
 function getDirection (plugin, transaction) {
-  if (transaction.Account === plugin._address) return 'outgoing'
-  if (transaction.Destination === plugin._address) return 'incoming'
+  if (transaction.Account === plugin._account) return 'outgoing'
+  if (transaction.Destination === plugin._account) return 'incoming'
   throw new Error('tried to parse direction from invalid tx:' +
     JSON.stringify(transaction))
 }

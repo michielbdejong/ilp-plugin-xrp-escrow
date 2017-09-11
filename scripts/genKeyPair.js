@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 var keypairs = require('ripple-keypairs')
 
-const seed = keypairs.generateSeed()
-const keypair = keypairs.deriveKeypair(seed)
-const address = keypairs.deriveAddress(keypair.publicKey)
+const secret = keypairs.generateSeed()
+const keypair = keypairs.deriveKeypair(secret)
+const account = keypairs.deriveAddress(keypair.publicKey)
 console.log({
-  secret: seed,
-  account: address,
+  secret,
+  account,
   keypair
 })

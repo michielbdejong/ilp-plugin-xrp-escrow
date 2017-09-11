@@ -35,13 +35,13 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
     }
 
     const keys = keypairs.deriveKeypair(this._secret)
-    const address = keypairs.deriveAddress(keys.publicKey)
-    this._address = opts.address || address
+    const account = keypairs.deriveAddress(keys.publicKey)
+    this._account = opts.account || account
 
-    if (address !== this._address) {
+    if (account !== this._account) {
       throw new Errors.InvalidFieldsError(
-        'opts.address does not correspond to opts.secret.' +
-        ' address=' + address +
+        'opts.account does not correspond to opts.secret.' +
+        ' account=' + account +
         ' opts=' + JSON.stringify(opts))
     }
 
@@ -68,10 +68,10 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
   async connect () {
     debug('connecting to api')
     await this._api.connect()
-    debug('subscribing to account notifications for', this._address)
+    debug('subscribing to account notifications for', this._account)
     await this._api.connection.request({
       command: 'subscribe',
-      accounts: [ this._address ]
+      accounts: [ this._account ]
     })
 
     this._api.connection.on('transaction', (ev) => {
@@ -99,7 +99,7 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
   }
 
   getAccount () {
-    return this._prefix + this._address
+    return this._prefix + this._account
   }
 
   getInfo () {
@@ -114,7 +114,7 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
     assert(this._connected, 'plugin must be connected before getBalance')
     debug('requesting account info for balance')
 
-    const info = await this._api.getAccountInfo(this._address)
+    const info = await this._api.getAccountInfo(this._account)
     const dropBalance = (new BigNumber(info.xrpBalance)).shift(6)
     return dropBalance.round().toString()
   }
@@ -169,18 +169,18 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
       throw new Error('transfer.to "' + transfer.to + '" does not start with ' + this._prefix)
     }
 
-    const localAddress = transfer.to.substring(this._prefix.length)
+    const localAccount = transfer.to.substring(this._prefix.length)
     const dropAmount = (new BigNumber(transfer.amount)).shift(-6)
 
     // TODO: is there a better way to do note to self?
     this._notesToSelf[transfer.id] = JSON.parse(JSON.stringify(transfer.noteToSelf || {}))
 
-    debug('sending', dropAmount.toString(), 'to', localAddress,
+    debug('sending', dropAmount.toString(), 'to', localAccount,
       'condition', transfer.executionCondition)
 
-    const tx = await this._api.prepareEscrowCreation(this._address, {
+    const tx = await this._api.prepareEscrowCreation(this._account, {
       amount: dropAmount.toString(),
-      destination: localAddress.split('.')[0],
+      destination: localAccount.split('.')[0],
       allowCancelAfter: transfer.expiresAt,
       condition: Condition.conditionToRipple(transfer.executionCondition),
       memos: [{
@@ -218,7 +218,7 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
       .digest()
       .toString('base64')
 
-    const tx = await this._api.prepareEscrowExecution(this._address, {
+    const tx = await this._api.prepareEscrowExecution(this._account, {
       owner: cached.Account,
       escrowSequence: cached.Sequence,
       condition: Condition.conditionToRipple(condition),
@@ -252,7 +252,7 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
     // which step it happens during.
     try {
       const cached = this._transfers[transferId]
-      const tx = await this._api.prepareEscrowCancellation(this._address, {
+      const tx = await this._api.prepareEscrowCancellation(this._account, {
         owner: cached.Account,
         escrowSequence: cached.Sequence
       })
@@ -317,17 +317,17 @@ module.exports = class PluginXrpEscrow extends EventEmitter2 {
       throw new Error('message.to "' + message.to + '" does not start with ' + this._prefix)
     }
 
-    const localAddress = message.to.substring(this._prefix.length)
-    const tx = await this._api.preparePayment(this._address, {
+    const localAccount = message.to.substring(this._prefix.length)
+    const tx = await this._api.preparePayment(this._account, {
       source: {
-        address: this._address,
+        address: this._account,
         maxAmount: {
           value: '0.000001',
           currency: 'XRP'
         }
       },
       destination: {
-        address: localAddress.split('.')[0],
+        address: localAccount.split('.')[0],
         amount: {
           value: '0.000001',
           currency: 'XRP'
